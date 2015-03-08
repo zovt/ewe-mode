@@ -1,0 +1,4 @@
+* EWE
+Edit With Emotion
+
+Text editing commands with motions in Emacs. A beautiful combination of Emacs-style editing and Vim motions
