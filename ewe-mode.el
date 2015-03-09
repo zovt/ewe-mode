@@ -14,22 +14,30 @@
 (define-key ewe-mode-map (kbd "M-p") 'ewe-move-beginning-of-paragraph)
 (define-key ewe-mode-map (kbd "C-S-n") 'ewe-move-end-of-paragraph)
 (define-key ewe-mode-map (kbd "M-n") 'ewe-move-end-of-paragraph)
-(define-key ewe-mode-map (kbd "C-S-f") 'ewe-move-end-of-word)
-(define-key ewe-mode-map (kbd "C-S-b") 'ewe-move-beginning-of-word)
+(define-key ewe-mode-map (kbd "C-S-f") 'ewe-move-next-word)
+(define-key ewe-mode-map (kbd "C-S-b") 'ewe-move-previous-word)
 
+(define-key ewe-mode-map (kbd "C-. t") 'ewe-move-to-char)
+nnn
 ;;;; Kill Commands
 (define-key ewe-mode-map (kbd "C-k l") 'ewe-kill-line)
 (define-key ewe-mode-map (kbd "C-k k") 'ewe-kill-line)
-(define-key ewe-mode-map (kbd "C-k C-k") 'ewe-kill-line)
+(define-key ewe-mode-map (kbd "C-k C-k") 'kill-line)
+(define-key ewe-mode-map (kbd "C-k e") 'ewe-kill-end-of-line)
 (define-key ewe-mode-map (kbd "C-k p") 'ewe-kill-paragraph)
-(define-key ewe-mode-map (kbd "C-k w") 'ewe-kill-word-forward)
-(define-key ewe-mode-map (kbd "C-S-d") 'ewe-kill-word-forward)
+(define-key ewe-mode-map (kbd "C-k w") 'ewe-kill-word)
+(define-key ewe-mode-map (kbd "C-S-d") 'ewe-kill-word)
+(define-key ewe-mode-map (kbd "C-k t") 'ewe-kill-until-char)
+(define-key ewe-mode-map (kbd "C-k T") 'ewe-kill-through-char)
 
 ;;;; Yank Commands
 (define-key ewe-mode-map (kbd "M-k l") 'ewe-yank-line)
 (define-key ewe-mode-map (kbd "M-k k") 'ewe-yank-line)
 (define-key ewe-mode-map (kbd "M-k M-k") 'ewe-yank-line)
 (define-key ewe-mode-map (kbd "M-k p") 'ewe-yank-paragraph)
+(define-key ewe-mode-map (kbd "M-k w") 'ewe-yank-word)
+(define-key ewe-mode-map (kbd "M-k t") 'ewe-yank-until-char)
+(define-key ewe-mode-map (kbd "M-k T") 'ewe-yank-through-char)
 
 ;; Functions
 ;;; Utility
@@ -60,7 +68,7 @@
       (setq offset 0))
   (let ((chars-back offset)
 	(pos (point)))
-    (while (not (or (member (char-after (- pos chars-back)) '(?  ?\( ?\) ?' ?\\ ?/ ?\" ?. ?, ?\; ?: ?\n ?-)) (equal (- pos chars-back) (point-min))))
+    (while (not (or (member (char-after (- pos chars-back)) '(? ?? ?! ?\( ?\) ?' ?\\ ?/ ?\" ?. ?, ?\; ?: ?\n ?-)) (equal (- pos chars-back) (point-min))))
       (setq chars-back (+ chars-back 1)))
     (- pos (- chars-back 1))))
 
@@ -72,10 +80,20 @@
       (setq offset 0))
   (let ((chars-forward offset)
 	(pos (point)))
-    (while (not (or (member (char-after (+ pos chars-forward)) '(?  ?\( ?\) ?' ?\\ ?/ ?- ?\" ?. ?, ?\; ?: ?\n)) (equal (+ pos chars-forward) (point-min))))
+    (while (not (or (member (char-after (+ pos chars-forward)) '(? ?? ?! ?\( ?\) ?' ?\\ ?/ ?- ?\" ?. ?, ?\; ?: ?\n)) (equal (+ pos chars-forward) (point-max))))
       (setq chars-forward (+ chars-forward 1)))
     (+ pos chars-forward)))
 
+(defun ewe-find-letter (&optional offset)
+  "Find letter from OFFSET."
+  (if (not offset)
+      (setq offset 0))
+  (let ((chars-forward offset)
+	(pos (point))
+	(key-char (read-char)))
+    (while (not (or (equal (char-after (+ pos chars-forward)) key-char) (equal (+ pos chars-forward) (point-max))))
+      (setq chars-forward (+ chars-forward 1)))
+    (+ pos chars-forward)))
 
 ;;; Movement
 (defun ewe-move-beginning-of-paragraph ()
@@ -88,15 +106,20 @@
   (interactive)
   (goto-char (ewe-find-end-of-paragraph 1)))
 
-(defun ewe-move-beginning-of-word ()
+(defun ewe-move-next-word ()
+  "Move to the end of word."
+  (interactive)
+  (goto-char (+ (ewe-find-end-of-word) 1)))
+
+(defun ewe-move-previous-word ()
   "Move to the end of word."
   (interactive)
   (goto-char (ewe-find-beginning-of-word 2)))
 
-(defun ewe-move-end-of-word ()
-  "Move to the end of word."
+(defun ewe-move-to-char ()
+  "Move to specified char in line."
   (interactive)
-  (goto-char (ewe-find-end-of-word 1)))
+  (goto-char (ewe-find-letter 1)))
 
 ;;; Kill
 (defun ewe-kill-line ()
@@ -104,16 +127,31 @@
   (interactive)
   (kill-region (line-beginning-position) (line-beginning-position 2)))
 
+(defun ewe-kill-end-of-line ()
+  "Kill until end of line."
+  (interactive)
+  (kill-region (point) (line-end-position)))
+
 (defun ewe-kill-paragraph ()
   "Kill a paragraph."
   (interactive)
   (kill-region (ewe-find-beginning-of-paragraph) (ewe-find-end-of-paragraph)))
 
-(defun ewe-kill-word-forward ()
+(defun ewe-kill-word ()
   "Kill a word."
   (interactive)
   (kill-region (ewe-find-beginning-of-word) (ewe-find-end-of-word)))
 
+(defun ewe-kill-until-char ()
+  "Kill until a character."
+  (interactive)
+  (kill-region (point) (ewe-find-letter 1)))
+
+(defun ewe-kill-through-char ()
+  "Kill up to and including a character."
+  (interactive)
+  (kill-region (point) (+ (ewe-find-letter 1) 1)))
+	       
 ;;; Yank
 (defun ewe-yank-line ()
   "Yank entire line."
@@ -125,6 +163,20 @@
   (interactive)
   (kill-ring-save (ewe-find-beginning-of-paragraph) (ewe-find-end-of-paragraph)))
 
+(defun ewe-yank-word ()
+  "Yank word."
+  (interactive)
+  (kill-ring-save (ewe-find-beginning-of-word) (ewe-find-end-of-word)))
+
+(defun ewe-yank-until-char ()
+  "Yank up to char."
+  (interactive)
+  (kill-ring-save (point) (ewe-find-letter 1)))
+
+(defun ewe-yank-through-char ()
+  "Yank up to and including char."
+  (interactive)
+  (kill-ring-save (point) (+ (ewe-find-letter 1) 1)))
 
 ;; Mode
 (define-minor-mode ewe-minor-mode
