@@ -6,6 +6,10 @@
 ;; Basic defines
 (defvar ewe-mode-hook nil)
 
+;; Mode vars
+(defgroup ewe-group nil "Customization gruop for EWE.")
+(defcustom ewe-max-regex-length 100 "Max regex length for searching. Setting this too high can cause lag, but setting it too low can cause matching errors." :group 'ewe-group)
+
 ;;; Set up keymap
 (defvar ewe-mode-map (make-keymap) "Keymap for EWE major mode.")
 
@@ -19,6 +23,9 @@
 
 (define-key ewe-mode-map (kbd "C-. t") 'ewe-move-to-char)
 (define-key ewe-mode-map (kbd "C-. r") 'ewe-move-forward-regex)
+(define-key ewe-mode-map (kbd "C-. C-r") 'ewe-move-forward-regex)
+(define-key ewe-mode-map (kbd "C-. R") 'ewe-move-back-regex)
+(define-key ewe-mode-map (kbd "C-. C-S-r") 'ewe-move-back-regex)
 
 ;;;; Kill Commands
 (define-key ewe-mode-map (kbd "C-k l") 'ewe-kill-line)
@@ -63,21 +70,28 @@
 
 (defun ewe-match-regexp-after (pos expr &optional max-length)
   "Match EXPR after POS and return the position. MAX-LENGTH is *very* useful for optimization."
-  (let ((chars-forward 0)
+  (let ((chars-forward (if max-length
+			   max-length
+			 0))
 	(string-pos 0)
 	(keep-going 1)
 	(string ""))
-    (while (and (not (> (+ pos chars-forward) (point-max))) keep-going)
+    (while (and (< (+ pos chars-forward) (point-max)) keep-going)
       (progn
 	(if max-length
 	    (setq string (buffer-substring (+ pos (- chars-forward max-length))
 					   (+ pos chars-forward)))
 	  (setq string (buffer-substring pos
 					 (+ pos chars-forward))))
-	(if (string-match-p expr string)
+	(if (and (string-match-p expr string)
+		 (if max-length
+		     (not (equal 0 (- chars-forward max-length)))
+		   (not (equal 0 chars-forward))))
 	    (progn (setq keep-going nil) (setq string-pos (string-match expr string)))
 	  (setq chars-forward (+ chars-forward 1)))))
-    (+ pos string-pos)))
+    (if max-length
+	(+ pos (- chars-forward max-length) string-pos)
+      (+ pos string-pos))))
 
 (defun ewe-find-beginning-of-paragraph (&optional offset)
   "Find beginning of paragraph and return position. OFFSET is optional and used to jump paragraph."
@@ -159,10 +173,16 @@
   (goto-char (ewe-find-letter 1)))
 
 (defun ewe-move-forward-regex ()
-  "Move to regex."
+  "Move forward to regex."
   (interactive)
   (let ((reg (read-from-minibuffer "Regex: ")))
-    (goto-char (ewe-match-regexp-after (point) reg))))
+    (goto-char (ewe-match-regexp-after (point) reg ewe-max-regex-length))))
+
+(defun ewe-move-back-regex ()
+  "Move backward to regex."
+  (interactive)
+  (let ((reg (read-from-minibuffer "Regex: ")))
+    (goto-char (ewe-match-regexp-before (point) reg ewe-max-regex-length))))
 
 ;;; Kill
 (defun ewe-kill-line ()
