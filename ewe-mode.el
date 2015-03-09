@@ -161,7 +161,7 @@
 (defun ewe-move-forward-regex ()
   "Move to regex."
   (interactive)
-  (let ((reg (read-from-minibuffer "Regex:")))
+  (let ((reg (read-from-minibuffer "Regex: ")))
     (goto-char (ewe-match-regexp-after (point) reg))))
 
 ;;; Kill
