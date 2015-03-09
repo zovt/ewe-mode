@@ -18,7 +18,7 @@
 (define-key ewe-mode-map (kbd "C-S-b") 'ewe-move-previous-word)
 
 (define-key ewe-mode-map (kbd "C-. t") 'ewe-move-to-char)
-nnn
+
 ;;;; Kill Commands
 (define-key ewe-mode-map (kbd "C-k l") 'ewe-kill-line)
 (define-key ewe-mode-map (kbd "C-k k") 'ewe-kill-line)
@@ -36,6 +36,7 @@ nnn
 (define-key ewe-mode-map (kbd "M-k M-k") 'ewe-yank-line)
 (define-key ewe-mode-map (kbd "M-k p") 'ewe-yank-paragraph)
 (define-key ewe-mode-map (kbd "M-k w") 'ewe-yank-word)
+(define-key ewe-mode-map (kbd "M-S-d") 'ewe-yank-word)
 (define-key ewe-mode-map (kbd "M-k t") 'ewe-yank-until-char)
 (define-key ewe-mode-map (kbd "M-k T") 'ewe-yank-through-char)
 
