@@ -18,6 +18,7 @@
 (define-key ewe-mode-map (kbd "C-S-b") 'ewe-move-previous-word)
 
 (define-key ewe-mode-map (kbd "C-. t") 'ewe-move-to-char)
+(define-key ewe-mode-map (kbd "C-. r") 'ewe-move-forward-regex)
 
 ;;;; Kill Commands
 (define-key ewe-mode-map (kbd "C-k l") 'ewe-kill-line)
@@ -42,6 +43,42 @@
 
 ;; Functions
 ;;; Utility
+(defun ewe-match-regexp-before (pos expr &optional max-length)
+  "Match EXPR before POS and return the position. MAX-LENGTH is *very* useful for optimization."
+  (let ((chars-back 0))
+    (if max-length
+	(progn
+	  (while (not (or (eq (- pos chars-back) (point-min))
+			  (string-match-p expr
+					  (buffer-substring (- pos chars-back)
+							    (+ (- pos chars-back) max-length)))))
+	    (setq chars-back (+ chars-back 1))))
+      (progn
+	(while (not (or (string-match-p expr
+					(buffer-substring (- pos chars-back)
+							  pos))
+			(eq (- pos chars-back) (point-min))))
+	  (setq chars-back (+ chars-back 1)))))
+    (- pos chars-back)))
+
+(defun ewe-match-regexp-after (pos expr &optional max-length)
+  "Match EXPR after POS and return the position. MAX-LENGTH is *very* useful for optimization."
+  (let ((chars-forward 0)
+	(string-pos 0)
+	(keep-going 1)
+	(string ""))
+    (while (and (not (> (+ pos chars-forward) (point-max))) keep-going)
+      (progn
+	(if max-length
+	    (setq string (buffer-substring (+ pos (- chars-forward max-length))
+					   (+ pos chars-forward)))
+	  (setq string (buffer-substring pos
+					 (+ pos chars-forward))))
+	(if (string-match-p expr string)
+	    (progn (setq keep-going nil) (setq string-pos (string-match expr string)))
+	  (setq chars-forward (+ chars-forward 1)))))
+    (+ pos string-pos)))
+
 (defun ewe-find-beginning-of-paragraph (&optional offset)
   "Find beginning of paragraph and return position. OFFSET is optional and used to jump paragraph."
   (interactive)
@@ -72,7 +109,6 @@
     (while (not (or (member (char-after (- pos chars-back)) '(? ?? ?! ?\( ?\) ?' ?\\ ?/ ?\" ?. ?, ?\; ?: ?\n ?-)) (equal (- pos chars-back) (point-min))))
       (setq chars-back (+ chars-back 1)))
     (- pos (- chars-back 1))))
-
 
 (defun ewe-find-end-of-word (&optional offset)
   "Find the end of the word from OFFSET."
@@ -122,6 +158,12 @@
   (interactive)
   (goto-char (ewe-find-letter 1)))
 
+(defun ewe-move-forward-regex ()
+  "Move to regex."
+  (interactive)
+  (let ((reg (read-from-minibuffer "Regex:")))
+    (goto-char (ewe-match-regexp-after (point) reg))))
+
 ;;; Kill
 (defun ewe-kill-line ()
   "Kill entire line."
@@ -152,7 +194,7 @@
   "Kill up to and including a character."
   (interactive)
   (kill-region (point) (+ (ewe-find-letter 1) 1)))
-	       
+
 ;;; Yank
 (defun ewe-yank-line ()
   "Yank entire line."
