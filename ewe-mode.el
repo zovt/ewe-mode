@@ -8,7 +8,6 @@
 
 ;; Mode vars
 (defgroup ewe-group nil "Customization gruop for EWE.")
-(defcustom ewe-max-regex-length 100 "Max regex length for searching. Setting this too high can cause lag, but setting it too low can cause matching errors." :group 'ewe-group)
 
 ;;; Set up keymap
 (defvar ewe-mode-map (make-keymap) "Keymap for EWE major mode.")
@@ -48,50 +47,31 @@
 (define-key ewe-mode-map (kbd "M-k t") 'ewe-yank-until-char)
 (define-key ewe-mode-map (kbd "M-k T") 'ewe-yank-through-char)
 
+;;;; Modes
+(define-key ewe-mode-map (kbd "C-s") 'ewe-regex-match-mode)
+
 ;; Functions
 ;;; Utility
-(defun ewe-match-regexp-before (pos expr &optional max-length)
-  "Match EXPR before POS and return the position. MAX-LENGTH is *very* useful for optimization."
-  (let ((chars-back 0))
-    (if max-length
-	(progn
-	  (while (not (or (eq (- pos chars-back) (point-min))
-			  (string-match-p expr
-					  (buffer-substring (- pos chars-back)
-							    (+ (- pos chars-back) max-length)))))
-	    (setq chars-back (+ chars-back 1))))
-      (progn
-	(while (not (or (string-match-p expr
-					(buffer-substring (- pos chars-back)
-							  pos))
-			(eq (- pos chars-back) (point-min))))
-	  (setq chars-back (+ chars-back 1)))))
-    (- pos chars-back)))
+(defun ewe-match-regex-before (regex pos)
+  "Match REGEX before POS."
+  (interactive)
+  (let ((str (buffer-substring (point-min) pos))
+	(start (point-min))
+	(position pos)
+	(res pos))
+    (while (setq position (string-match regex str start))
+      (setq start (+ position 1))
+      (setq res start))
+    res))
 
-(defun ewe-match-regexp-after (pos expr &optional max-length)
-  "Match EXPR after POS and return the position. MAX-LENGTH is *very* useful for optimization."
-  (let ((chars-forward (if max-length
-			   max-length
-			 0))
-	(string-pos 0)
-	(keep-going 1)
-	(string ""))
-    (while (and (< (+ pos chars-forward) (point-max)) keep-going)
-      (progn
-	(if max-length
-	    (setq string (buffer-substring (+ pos (- chars-forward max-length))
-					   (+ pos chars-forward)))
-	  (setq string (buffer-substring pos
-					 (+ pos chars-forward))))
-	(if (and (string-match-p expr string)
-		 (if max-length
-		     (not (equal 0 (- chars-forward max-length)))
-		   (not (equal 0 chars-forward))))
-	    (progn (setq keep-going nil) (setq string-pos (string-match expr string)))
-	  (setq chars-forward (+ chars-forward 1)))))
-    (if max-length
-	(+ pos (- chars-forward max-length) string-pos)
-      (+ pos string-pos))))
+(defun ewe-match-regex-after (regex pos)
+  "Match REGEX after POS."
+  (interactive)
+  (let ((str (buffer-substring pos (point-max)))
+	(position pos))
+    (if (setq position (string-match regex str))
+	(+ pos position)
+      pos)))
 
 (defun ewe-find-beginning-of-paragraph (&optional offset)
   "Find beginning of paragraph and return position. OFFSET is optional and used to jump paragraph."
@@ -176,13 +156,13 @@
   "Move forward to regex."
   (interactive)
   (let ((reg (read-from-minibuffer "Regex: ")))
-    (goto-char (ewe-match-regexp-after (point) reg ewe-max-regex-length))))
+    (goto-char (ewe-match-regex-after reg (point)))))
 
 (defun ewe-move-back-regex ()
   "Move backward to regex."
   (interactive)
   (let ((reg (read-from-minibuffer "Regex: ")))
-    (goto-char (ewe-match-regexp-before (point) reg ewe-max-regex-length))))
+    (goto-char (ewe-match-regex-before reg (point)))))
 
 ;;; Kill
 (defun ewe-kill-line ()
@@ -240,6 +220,44 @@
   "Yank up to and including char."
   (interactive)
   (kill-ring-save (point) (+ (ewe-find-letter 1) 1)))
+
+;; Minor Minor Modes
+;;; Regex Mode
+(defvar ewe-regex-mode-map (make-keymap) "Keymap for EWE-Regex matching.")
+
+(define-minor-mode ewe-regex-match-mode
+  "EWE Regex Matching mode."
+  :lighter " EWE-reg"
+  :keymap ewe-regex-mode-map)
+
+;;;; Functions
+;;;;; Utility
+(defun ewe-get-regex-string (regex string)
+  "Find the length of REGEX in STRING, where string starts with REGEX."
+  (let* ((end 0)
+	 (pos 0)
+	 (length 0)
+	 (str (substring string 0 end)))
+    (while (not (setq pos (string-match regex str)))
+      (setq end (+ end 1))
+      (setq str (substring string 0 end)))
+    str))
+
+(defun ewe-regex-enumerate-matches (regex)
+  "Search buffer for REGEX. Returns a list with the format ((MATCHED-STRING . POS))"
+  (let ((matches)
+	(str (buffer-substring (point-min) (point-max)))
+	(start (point-min))
+	(pos (point-min)))
+    (while (setq pos (string-match regex str start))
+      (setq matches (cons `(,pos . ,(ewe-get-regex-string regex (substring str pos (length str)))) matches))
+      (setq start (+ 1 pos)))
+    matches))
+
+(defun ewe-regex-get-regex ()
+  "Prompt user for regex in the minibuffer."
+  (interactive))
+  
 
 ;; Mode
 (define-minor-mode ewe-minor-mode
