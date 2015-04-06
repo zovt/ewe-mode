@@ -355,7 +355,8 @@
 (defun ewe-yank-inside-pair ()
   "Yank inside pair."
   (interactive)
-  (let ((beg (ewe-find-left-delimiter))
+  (let ((pos (point))
+	(beg (ewe-find-left-delimiter))
 	(end (ewe-find-right-delimiter)))
     (if (not beg)
 	(minibuffer-message "Not in pair")
@@ -363,16 +364,19 @@
 	  (setq end (point)))
       (setq beg (+ beg 1))
       (setq end (- end 1))
-      (kill-ring-save beg end))))
+      (kill-ring-save beg end)
+      (goto-char pos))))
 
 (defun ewe-yank-around-pair ()
   "Yank around pair."
   (interactive)
-  (let ((beg (ewe-find-left-delimiter))
+  (let ((pos (point))
+	(beg (ewe-find-left-delimiter))
 	(end (ewe-find-right-delimiter)))
     (if (or (equal beg nil) (equal end nil))
 	(minibuffer-message "Not in pair.")
-      (kill-ring-save beg end))))
+      (kill-ring-save beg end)
+      (goto-char pos))))
 
 
 ;; Minor Minor Modes
